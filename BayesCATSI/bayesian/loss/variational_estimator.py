@@ -19,11 +19,21 @@ def variational_estimator(nn_class):
                     complexity_cost_weight=1):
 
         loss = 0
-        for _ in range(sample_nbr):
+        outputSet = []
+        meanOutput = torch.zeros((inputs.shape))
+        stdOutput = torch.zeros((inputs.shape))
+        for i in range(sample_nbr):
             outputs = self(inputs)
             loss += criterion(outputs, labels)
             loss += self.nn_kl_divergence() * complexity_cost_weight
-        return loss / sample_nbr
+            if(not(self.training)): 
+              outputSet.append(outputs)
+        if(not(self.training)): 
+          outputSet = torch.stack(outputSet)
+          stdOutput = outputSet.std(dim=0)
+          meanOutput = outputSet.mean(dim=0)
+          
+        return (loss / sample_nbr), meanOutput, stdOutput
 
     setattr(nn_class, "sample_elbo", sample_elbo)
     return nn_class

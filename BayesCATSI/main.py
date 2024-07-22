@@ -67,13 +67,13 @@ class BayesianContAwareTimeSeriesImp(object):
         imp_dfs_valid = None
 
         # Early stopping
-        patience = 3
+        patience = 5
         trigger_times = 0
         min_delta = 0.0
         best_loss = 100
 
         # Scheduler for reducing learning rate on plateau
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=2)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=3)
         
         for epoch in range(epochs):
             self.model.train()
@@ -236,22 +236,36 @@ class BayesianContAwareTimeSeriesImp(object):
             missing_masks = 1 - data['masks']
             ret = self.model(data)
             imputation = ret['imputations']
-
+            confUpper = ret['finalUpper']
+            confLower = ret['finalLower']
             pids = data['pids']
             imp_df = pd.DataFrame(missing_masks.nonzero().data.cpu().numpy(), columns=['pid', 'tid', 'colid'])
             imp_df['pid'] = imp_df['pid'].map({i: pid for i, pid in enumerate(pids)})
             imp_df['analyte'] = imp_df['colid'].map(self.var_names_dict)
             imp_df['imputation'] = imputation[missing_masks == 1].data.cpu().numpy()
+            imp_df['upper'] = confUpper[missing_masks == 1].data.cpu().numpy()
+            imp_df['lower'] = confLower[missing_masks == 1].data.cpu().numpy()
+            
             imp_dfs.append(imp_df)
 
             for p in range(len(pids)):
                 seq_len = data['lengths'][p]
                 time_stamps = data['time_stamps'][p, :seq_len].unsqueeze(1)
+                upper = confUpper[p, :seq_len, :]
+                lower = confLower[p, :seq_len, :]
                 imp = imputation[p, :seq_len, :]
                 df = pd.DataFrame(torch.cat([time_stamps, imp], dim=1).data.cpu().numpy(),
                                   columns=['CHARTTIME'] + self.var_names)
                 df['CHARTTIME'] = df['CHARTTIME'].apply(int)
                 df.to_csv(out_dir / f'{pids[p]}.csv', index=False)
+                dfUpper = pd.DataFrame(torch.cat([time_stamps, upper], dim=1).data.cpu().numpy(),
+                                  columns=['CHARTTIME'] + self.var_names)
+                dfLower = pd.DataFrame(torch.cat([time_stamps, lower], dim=1).data.cpu().numpy(),
+                                  columns=['CHARTTIME'] + self.var_names)
+                dfUpper['CHARTTIME'] = dfUpper['CHARTTIME'].apply(int)
+                dfUpper.to_csv(out_dir / f'{pids[p]}_upper.csv', index=False)
+                dfLower['CHARTTIME'] = dfLower['CHARTTIME'].apply(int)
+                dfLower.to_csv(out_dir / f'{pids[p]}_lower.csv', index=False)
             pbar.update()
         pbar.close()
         print(f'Done, results saved in:\n {out_dir.resolve()}')
