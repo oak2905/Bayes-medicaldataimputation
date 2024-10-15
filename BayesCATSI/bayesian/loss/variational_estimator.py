@@ -30,10 +30,8 @@ def variational_estimator(nn_class):
               outputSet.append(outputs)
         if(not(self.training)): 
           outputSet = torch.stack(outputSet)
-          stdOutput = outputSet.std(dim=0)
-          meanOutput = outputSet.mean(dim=0)
           
-        return (loss / sample_nbr), meanOutput, stdOutput
+        return (loss / sample_nbr), outputSet
 
     setattr(nn_class, "sample_elbo", sample_elbo)
     return nn_class

@@ -247,7 +247,19 @@ class BayesianContAwareTimeSeriesImp(object):
             imp_df['lower'] = confLower[missing_masks == 1].data.cpu().numpy()
             
             imp_dfs.append(imp_df)
-
+            for piD in pids:
+              if(piD%2!=0): pInd = 0
+              elif(piD%2==0): pInd = 1
+              outputSet = ret['outputSet']
+              outputPlot = outputSet.detach().numpy()[pInd, :, :, :]
+              maskPlot = missing_masks.detach().numpy()[pInd , :, :]
+              rangeMaxMin = (data['max_vals']-data['min_vals'] + 1e-5).detach().numpy()[pInd,0,:]
+              MinVal = (data['min_vals']).detach().numpy()[pInd,0,:]
+              MinVal = MinVal[np.newaxis, :, np.newaxis]  # Shape (1, 12, 1)
+              rangeMaxMin = rangeMaxMin[np.newaxis, :, np.newaxis]  # Shape (1, 12, 1)
+    
+              histOutput = MinVal+(rangeMaxMin*outputPlot)
+              np.save(out_dir / f'histPlot_{piD}.npy', histOutput)
             for p in range(len(pids)):
                 seq_len = data['lengths'][p]
                 time_stamps = data['time_stamps'][p, :seq_len].unsqueeze(1)
@@ -258,6 +270,7 @@ class BayesianContAwareTimeSeriesImp(object):
                                   columns=['CHARTTIME'] + self.var_names)
                 df['CHARTTIME'] = df['CHARTTIME'].apply(int)
                 df.to_csv(out_dir / f'{pids[p]}.csv', index=False)
+
                 dfUpper = pd.DataFrame(torch.cat([time_stamps, upper], dim=1).data.cpu().numpy(),
                                   columns=['CHARTTIME'] + self.var_names)
                 dfLower = pd.DataFrame(torch.cat([time_stamps, lower], dim=1).data.cpu().numpy(),

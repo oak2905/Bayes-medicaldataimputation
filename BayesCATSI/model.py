@@ -289,9 +289,9 @@ class BayesCATSI(nn.Module):
 
         ## New  Line Added for Bayes version
         criterion_loss = nn.MSELoss(reduction = 'sum')
-        sample_nbr = 10
+        sample_nbr = 30
         # rnn_loss = criterion_loss(rnn_imp * masks, normalized_values * masks)
-        rnn_loss, meanRNN, stdRNN = self.recurrent_impute.sample_elbo(
+        rnn_loss, outputRNN = self.recurrent_impute.sample_elbo(
                 inputs=torch.cat((hiddens_forward, hiddens_backward), dim=2),
                 labels=normalized_values,
                 criterion=criterion_loss,
@@ -299,7 +299,7 @@ class BayesCATSI(nn.Module):
                 complexity_cost_weight=1 / rnn_imp.shape[0]  # Weight for complexity cost term
             )
         # feat_loss = criterion_loss(feat_imp * masks, normalized_values * masks)
-        feat_loss, meanFeat, stdFeat = self.feature_impute.sample_elbo(
+        feat_loss, outputFeat = self.feature_impute.sample_elbo(
                 inputs= x_complement,
                 labels=normalized_values,
                 criterion=criterion_loss,
@@ -309,16 +309,19 @@ class BayesCATSI(nn.Module):
         fusion_loss = criterion_loss(imp_fusion * masks, normalized_values * masks)
         total_loss = rnn_loss + feat_loss + fusion_loss
         if not(self.training):
-          meanValue = beta*meanFeat + (1 - beta)*meanRNN 
-          meanStd = torch.sqrt((beta**2)*(stdFeat**2) + ((1-beta)**2)*(stdRNN**2))
-          finalUpper = meanValue + (1.96*meanStd/math.sqrt(sample_nbr))
-          finalLower = meanValue - (1.96*meanStd/math.sqrt(sample_nbr))  
+          beta = torch.sigmoid(self.fuse_imputations(torch.cat((gamma, masks), dim=-1)))
+          meanValue = beta*outputFeat + (1 - beta)*outputRNN 
+          finalLower = torch.quantile(meanValue, 0.05, dim=0)
+          finalUpper = torch.quantile(meanValue, 0.95, dim=0)
           finalUpper = masks * normalized_values + (1-masks) * finalUpper
           finalLower = masks * normalized_values + (1-masks) * finalLower
+          outputSet = meanValue.permute(1, 2, 3, 0)
+          del meanValue
+          
         ##
         if self.training:
             # rnn_loss_eval = criterion_loss(rnn_imp * data['eval_masks'], normalized_evals * data['eval_masks'])
-            rnn_loss_eval,_,_ = self.recurrent_impute.sample_elbo(
+            rnn_loss_eval,_ = self.recurrent_impute.sample_elbo(
                 inputs=torch.cat((hiddens_forward, hiddens_backward), dim=2),
                 labels=normalized_evals,
                 criterion=criterion_loss,
@@ -326,7 +329,7 @@ class BayesCATSI(nn.Module):
                 complexity_cost_weight=1 / rnn_imp.shape[0]  # Weight for complexity cost term
             )
             # feat_loss_eval = criterion_loss(feat_imp * data['eval_masks'], normalized_evals * data['eval_masks'])
-            feat_loss_eval,_,_ = self.feature_impute.sample_elbo(
+            feat_loss_eval,_ = self.feature_impute.sample_elbo(
                 inputs=x_complement,
                 labels=normalized_evals,
                 criterion=criterion_loss,
@@ -341,10 +344,11 @@ class BayesCATSI(nn.Module):
 
         feat_imp = rescale(feat_imp)
         rnn_imp = rescale(rnn_imp)
+        final_imp = rescale(final_imp)
         if(not(self.training)):
-          final_imp = rescale(final_imp)
           finalUpper = rescale(finalUpper)
           finalLower = rescale(finalLower)
+  
         out_dict = {
             'loss': total_loss / masks.sum(),
             'verbose_loss': [
@@ -360,6 +364,7 @@ class BayesCATSI(nn.Module):
         if(not(self.training)):
           out_dict['finalUpper'] = finalUpper
           out_dict['finalLower'] = finalLower
+          out_dict['outputSet'] = outputSet
         if self.training:
             #print(data['eval_masks'].sum())
             out_dict['loss_eval'] = total_loss_eval / data['eval_masks'].sum()
