@@ -30,8 +30,9 @@ class TrainableRandomDistribution(nn.Module):
         """
 
         # self.eps_w.data.normal_()
-        epsilon = torch.distributions.Normal(0,1).sample(self.rho.size())
-        self.sigma = torch.log1p(torch.exp(self.rho))
+        device = self.mu.device
+        epsilon = torch.distributions.Normal(0,1).sample(self.rho.size()).to(device)
+        self.sigma = torch.log1p(torch.exp(self.rho)).to(device)
         self.w = self.mu + self.sigma * epsilon
         return self.w
 

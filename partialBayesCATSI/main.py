@@ -18,7 +18,7 @@ from utils import AverageMeter, build_data_loader, load_data
 import argparse
 # torch.autograd.set_detect_anomaly(True)
 
-class ContAwareTimeSeriesImp(object):
+class pBContAwareTimeSeriesImp(object):
     def __init__(self, var_names,
                  train_data_path='./data/training',
                  out_path='./results/',
@@ -67,13 +67,13 @@ class ContAwareTimeSeriesImp(object):
         imp_dfs_valid = None
 
         # Early stopping
-        patience = 3
+        patience = 5
         trigger_times = 0
         min_delta = 0.0
         best_loss = 100
 
         # Scheduler for reducing learning rate on plateau
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=2)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=3)
         
         for epoch in range(epochs):
             self.model.train()
@@ -236,13 +236,27 @@ class ContAwareTimeSeriesImp(object):
             missing_masks = 1 - data['masks']
             ret = self.model(data)
             imputation = ret['imputations']
-
+            
             pids = data['pids']
             imp_df = pd.DataFrame(missing_masks.nonzero().data.cpu().numpy(), columns=['pid', 'tid', 'colid'])
             imp_df['pid'] = imp_df['pid'].map({i: pid for i, pid in enumerate(pids)})
             imp_df['analyte'] = imp_df['colid'].map(self.var_names_dict)
             imp_df['imputation'] = imputation[missing_masks == 1].data.cpu().numpy()
             imp_dfs.append(imp_df)
+
+            for piD in pids:
+              if(piD%2!=0): pInd = 0
+              elif(piD%2==0): pInd = 1
+              outputSet = ret['outputSet']
+              outputPlot = outputSet.detach().cpu().numpy()[pInd, :, :, :]
+              maskPlot = missing_masks.detach().cpu().numpy()[pInd , :, :]
+              rangeMaxMin = (data['max_vals']-data['min_vals'] + 1e-5).detach().cpu().numpy()[pInd,0,:]
+              MinVal = (data['min_vals']).detach().cpu().numpy()[pInd,0,:]
+              MinVal = MinVal[np.newaxis, :, np.newaxis]  # Shape (1, 12, 1)
+              rangeMaxMin = rangeMaxMin[np.newaxis, :, np.newaxis]  # Shape (1, 12, 1)
+    
+              histOutput = MinVal+(rangeMaxMin*outputPlot)
+              np.save(out_dir / f'histPlot_{piD}.npy', histOutput)
 
             for p in range(len(pids)):
                 seq_len = data['lengths'][p]
@@ -251,7 +265,7 @@ class ContAwareTimeSeriesImp(object):
                 df = pd.DataFrame(torch.cat([time_stamps, imp], dim=1).data.cpu().numpy(),
                                   columns=['CHARTTIME'] + self.var_names)
                 df['CHARTTIME'] = df['CHARTTIME'].apply(int)
-                df.to_csv(out_dir / f'{pids[p]}.csv', index=False)
+                # df.to_csv(out_dir / f'{pids[p]}.csv', index=False)
             pbar.update()
         pbar.close()
         print(f'Done, results saved in:\n {out_dir.resolve()}')
@@ -279,7 +293,7 @@ if __name__ == '__main__':
         'E1-M2', 'Chin1-Chin2', 'ABD', 'CHEST', 'AIRFLOW', 'ECG'
     ]
 
-    model = ContAwareTimeSeriesImp(var_names,
+    model = pBContAwareTimeSeriesImp(var_names,
                                    train_data_path=args.input,
                                    out_path=args.output,
                                    force_reload_raw=args.reload,

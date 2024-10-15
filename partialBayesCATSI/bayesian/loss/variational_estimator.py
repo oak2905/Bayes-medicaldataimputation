@@ -23,7 +23,7 @@ def variational_estimator(nn_class):
             outputs = self(inputs)
             loss += criterion(outputs, labels)
             loss += self.nn_kl_divergence() * complexity_cost_weight
-        return loss / sample_nbr
+        return (loss / sample_nbr)
 
     setattr(nn_class, "sample_elbo", sample_elbo)
     return nn_class
