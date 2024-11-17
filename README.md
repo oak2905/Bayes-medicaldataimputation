@@ -17,7 +17,7 @@ optional arguments:
 --eval_batch_size       evaluation batch size for the model
 ```
 
-Data used in this project can be found at: [Data](https://physionet.org/content/challenge-2018/1.0.0/)
+Data used in this project can be found at: [Data](https://physionet.org/content/challenge-2018/1.0.0/) <br>
 Dummy data has been uploaded in the `\data` folder to provide an idea of the data structure.
 
 ## Citing the work
