@@ -8,8 +8,30 @@ Requires Python 3.9 or later with PyTorch and related libraries. Please refer to
 
 ## Usage
 The folders `/BayesCATSI` and `/partialBayesCATSI` contain the code for Bayes-CATSI and partial Bayes-CATSI models. Place the dataset in a new folder and train the model as follows.
+```{bash}
+python main.py --input /path/to/training/data --testing /path/to/test/data
+optional arguments:
+--output                Folder to save the results
+--epochs                number of epochs
+--batch_size            batch size for the model
+--eval_batch_size       evaluation batch size for the model
+```
 
-`python main.py -i /path/to/training/data -t /path/to/test/data`
+Data used in this project can be found at: [Data](https://physionet.org/content/challenge-2018/1.0.0/)
+Dummy data has been uploaded in the `\data` folder to provide an idea of the data structure.
+
+## Citing the work
+```{bash}
+@misc{kulkarni2024bayescatsivariationalbayesiandeep,
+      title={Bayes-CATSI: A variational Bayesian deep learning framework for medical time series data imputation}, 
+      author={Omkar Kulkarni and Rohitash Chandra},
+      year={2024},
+      eprint={2410.01847},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2410.01847}, 
+}
+```
 
 
 
