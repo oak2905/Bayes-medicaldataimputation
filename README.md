@@ -18,7 +18,8 @@ optional arguments:
 ```
 
 Data used in this project can be found at: [Data](https://physionet.org/content/challenge-2018/1.0.0/) <br>
-Dummy data has been uploaded in the `\data` folder to provide an idea of the data structure.
+Dummy data has been uploaded in the `\data` folder to provide an idea of the data structure. <br>
+Computational Resources: In this project, we leverage Google Colab’s free tier, which provides a CPU-based execution environment for running our code.
 
 ## Citing the work
 ```{bash}
